@@ -1,0 +1,163 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+)
+
+type ReceivedParams struct {
+	Lat   float64 `json:"lat"`
+	Lon   float64 `json:"lon"`
+	Date  string  `json:"date"`
+	Batch string  `json:"batch"`
+}
+
+type QueryResponse struct {
+	U       float64 `json:"u"`
+	V       float64 `json:"v"`
+	Status  int     `json:"status"`
+	Success bool    `json:"success"`
+}
+
+var failResponse = QueryResponse{
+	U:       0,
+	V:       0,
+	Status:  http.StatusBadRequest,
+	Success: false,
+}
+
+func sendJsonError(w http.ResponseWriter, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode) // 写入HTTP状态码 (例如 400, 500)
+	json.NewEncoder(w).Encode(failResponse)
+}
+
+func queryHandler(w http.ResponseWriter, r *http.Request) {
+	httpQuery := r.URL.Query()
+
+	latStr := httpQuery.Get("lat")
+	if latStr == "" {
+		// 如果参数丢失，发送一个 400 Bad Request 错误
+		sendJsonError(w, http.StatusBadRequest)
+		return
+	}
+	lat, err := strconv.ParseFloat(latStr, 64)
+	if err != nil {
+		sendJsonError(w, http.StatusBadRequest)
+		return
+	}
+
+	lonStr := httpQuery.Get("lon")
+	if lonStr == "" {
+		sendJsonError(w, http.StatusBadRequest)
+		return
+	}
+	lon, err := strconv.ParseFloat(lonStr, 64)
+	if err != nil {
+		sendJsonError(w, http.StatusBadRequest)
+		return
+	}
+
+	date := httpQuery.Get("date")
+	if date == "" {
+		sendJsonError(w, http.StatusBadRequest)
+		return
+	}
+
+	batch := httpQuery.Get("batch")
+	if batch == "" {
+		sendJsonError(w, http.StatusBadRequest)
+		return
+	}
+
+	params := ReceivedParams{
+		Lat:   lat,
+		Lon:   lon,
+		Date:  date,
+		Batch: batch,
+	}
+
+	// final respons
+	data, err2 := query(params)
+	if err2 != nil {
+		sendJsonError(w, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(data)
+	if err != nil {
+		log.Printf("Met Error when writing json to ResponseWriter: %v", err)
+	}
+}
+
+func query(params ReceivedParams) (QueryResponse, error) {
+	date := params.Date
+	batch := params.Batch
+	filePath := filepath.Join("tmp", date+"-"+batch+".json")
+
+	// First try
+	response, err := readAndParseFile(filePath, params)
+	if err == nil {
+		return response, nil
+	}
+
+	// Try to download
+	if err := downloadAndSave(date, batch); err != nil {
+		return failResponse, fmt.Errorf("download failed: %w", err)
+	}
+
+	// Second try
+	response, err = readAndParseFile(filePath, params)
+	if err != nil {
+		log.Printf("Second read/parse failed after download: %v", err)
+		return failResponse, fmt.Errorf("read/parse failed after download: %w", err)
+	}
+
+	// finally
+	return response, nil
+}
+
+func readAndParseFile(filePath string, params ReceivedParams) (QueryResponse, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return QueryResponse{}, fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	var data struct {
+		U []float64 `json:"10u"`
+		V []float64 `json:"10v"`
+	}
+
+	if err := json.Unmarshal(content, &data); err != nil {
+		return QueryResponse{}, fmt.Errorf("failed to unmarshal json from %s: %w", filePath, err)
+	}
+
+	if len(data.U) == 0 {
+		return QueryResponse{}, fmt.Errorf("json data for '10u' is empty or missing")
+	}
+	if len(data.V) == 0 {
+		return QueryResponse{}, fmt.Errorf("json data for '10v' is empty or missing")
+	}
+
+	lat := params.Lat
+	lon := params.Lon
+	valueIndex, err := GetIndexForCoord(lat, lon)
+	if err != nil {
+		return QueryResponse{}, fmt.Errorf("failed to get index for coord: %w", err)
+	}
+	response := QueryResponse{
+		U:       data.U[valueIndex],
+		V:       data.V[valueIndex],
+		Status:  http.StatusOK,
+		Success: true,
+	}
+
+	return response, nil
+}
