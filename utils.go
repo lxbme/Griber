@@ -9,15 +9,15 @@ import (
 	"path/filepath"
 )
 
-func makeRelative(date string, batch string, suffix string) string {
-	fileName := date + batch[:2] + "0000-0h-scda-fc" + suffix
-	relative := filepath.Join(date, batch, "ifs/0p25/scda", fileName)
+func makeRelative(date string, batch string, suffix string, prot string) string {
+	fileName := date + batch[:2] + "0000-0h-" + prot + "-fc" + suffix
+	relative := filepath.Join(date, batch, "ifs/0p25", prot, fileName)
 	return relative
 }
 
-func makeAbs(bucketName string, date string, batch string, suffix string) string {
+func makeAbs(bucketName string, date string, batch string, suffix string, prot string) string {
 	basePath := "/" + bucketName
-	relative := makeRelative(date, batch, suffix)
+	relative := makeRelative(date, batch, suffix, prot)
 	path := filepath.Join(basePath, relative)
 	return path
 }

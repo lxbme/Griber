@@ -86,6 +86,7 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 	data, err2 := query(params)
 	if err2 != nil {
 		sendJsonError(w, http.StatusBadRequest)
+		log.Println(err2)
 		return
 	}
 

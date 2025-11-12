@@ -79,6 +79,7 @@ func parseIndexResponse(index string) ([]GribChunkInfo, error) {
 		line := scanner.Text()
 		//fmt.Println(line)
 		if err := json.Unmarshal([]byte(line), &lineData); err != nil {
+			log.Printf("%s", line)
 			return nil, fmt.Errorf("fail to unmarshal index line: %w", err)
 		}
 		if (lineData["param"].(string) == "10u" || lineData["param"].(string) == "10v") && (lineData["levtype"].(string) == "sfc") {
