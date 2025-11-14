@@ -69,7 +69,7 @@ const (
 	Nj          int     = 721
 	LatFirst    float64 = 90.0
 	LatStep     float64 = 0.25
-	LonFirst    float64 = 0.0
+	LonFirst    float64 = 180.0 // GRIB data starts from 180° longitude
 	LonStep     float64 = 0.25
 	TotalPoints int     = 1038240
 )
@@ -83,12 +83,16 @@ func GetIndexForCoord(targetLat, targetLon float64) (int, error) {
 		normalizedLon += 360
 	}
 
-	// calc nearest lon index
-	iFloat := normalizedLon / LonStep
-	i := int(math.Round(iFloat))
+	// Calculate offset from LonFirst (180)
+	// Data array starts at 180 and wraps: 180, 180.25, ..., 359.75, 0, 0.25, ..., 179.75
+	lonOffset := normalizedLon - LonFirst
+	if lonOffset < 0 {
+		lonOffset += 360 // Handle wrap-around
+	}
 
-	// looping: max -> 0
-	i = i % Ni
+	// calc nearest lon index
+	iFloat := lonOffset / LonStep
+	i := int(math.Round(iFloat)) % Ni
 
 	// GRIB scan from 90 (North) to -90 (South)
 	// j = (LatFirst - targetLat) / LatStep
