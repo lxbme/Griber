@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -117,42 +116,4 @@ func GetIndexForCoord(targetLat, targetLon float64) (int, error) {
 	}
 
 	return index, nil
-}
-
-func readAndParseFile(filePath string, params SingleAPIParams) (SingleResponse, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return SingleResponse{}, fmt.Errorf("failed to read file %s: %w", filePath, err)
-	}
-
-	var data struct {
-		U []float64 `json:"10u"`
-		V []float64 `json:"10v"`
-	}
-
-	if err := json.Unmarshal(content, &data); err != nil {
-		return SingleResponse{}, fmt.Errorf("failed to unmarshal json from %s: %w", filePath, err)
-	}
-
-	if len(data.U) == 0 {
-		return SingleResponse{}, fmt.Errorf("json data for '10u' is empty or missing")
-	}
-	if len(data.V) == 0 {
-		return SingleResponse{}, fmt.Errorf("json data for '10v' is empty or missing")
-	}
-
-	lat := params.Lat
-	lon := params.Lon
-	valueIndex, err := GetIndexForCoord(lat, lon)
-	if err != nil {
-		return SingleResponse{}, fmt.Errorf("failed to get index for coord: %w", err)
-	}
-	response := SingleResponse{
-		U:       data.U[valueIndex],
-		V:       data.V[valueIndex],
-		Status:  http.StatusOK,
-		Success: true,
-	}
-
-	return response, nil
 }
