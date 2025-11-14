@@ -24,7 +24,7 @@ func downloadAndSave(date string, batch string) error {
 	indexUrl := makeUrl("storage.googleapis.com", IndexPath)
 	indexScanner, err := queryIndex(indexUrl) // index resp scanner
 	if err != nil {
-		return fmt.Errorf("fail to query index: %w", err)
+		return fmt.Errorf("fail to SingleQuery index: %w", err)
 	}
 	gribChunk, err := parseIndexResponse(indexScanner) // [10u, 10v]
 	if err != nil {
