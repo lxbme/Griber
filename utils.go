@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/url"
 	"os"
@@ -116,4 +118,26 @@ func GetIndexForCoord(targetLat, targetLon float64) (int, error) {
 	}
 
 	return index, nil
+}
+
+func readCSV(path string) ([][]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(file)
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		log.Fatalf("Fail to read csv: %v", err)
+	}
+
+	records = records[1 : len(records)-1]
+	return records, nil
 }
